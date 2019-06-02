@@ -161,7 +161,9 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         super(parent);
         this.addTaskWakesUp = addTaskWakesUp;
         this.maxPendingTasks = Math.max(16, maxPendingTasks);
+        //保存线程执行器，用于后续创建线程
         this.executor = ObjectUtil.checkNotNull(executor, "executor");
+        //创建一个taskQueue,用于执行netty业务任务的时候锁创建的队列
         taskQueue = newTaskQueue(this.maxPendingTasks);
         rejectedExecutionHandler = ObjectUtil.checkNotNull(rejectedHandler, "rejectedHandler");
     }
@@ -760,11 +762,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (task == null) {
             throw new NullPointerException("task");
         }
-
+        //判断当前线程是否是NioEventLoop
         boolean inEventLoop = inEventLoop();
         addTask(task);
-        if (!inEventLoop) {
-            startThread();
+        if (!inEventLoop) {//判断当前线程是否是NioEventLoop
+            startThread();//启动一个新的线程
             if (isShutdown() && removeTask(task)) {
                 reject();
             }
@@ -856,6 +858,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
 
     private void startThread() {
+        //判断当前线程是否已启动，如果未启动，则启动线程
         if (state == ST_NOT_STARTED) {
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 try {

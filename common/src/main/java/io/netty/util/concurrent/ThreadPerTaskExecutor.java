@@ -20,7 +20,7 @@ import java.util.concurrent.ThreadFactory;
 
 public final class ThreadPerTaskExecutor implements Executor {
     private final ThreadFactory threadFactory;
-
+    //创建一个线程任务执行器
     public ThreadPerTaskExecutor(ThreadFactory threadFactory) {
         if (threadFactory == null) {
             throw new NullPointerException("threadFactory");
@@ -28,6 +28,10 @@ public final class ThreadPerTaskExecutor implements Executor {
         this.threadFactory = threadFactory;
     }
 
+    /***
+     * 根据每个任务创建一个线程，并执行
+     * @param command
+     */
     @Override
     public void execute(Runnable command) {
         threadFactory.newThread(command).start();

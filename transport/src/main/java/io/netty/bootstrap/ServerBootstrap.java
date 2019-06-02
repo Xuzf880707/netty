@@ -137,13 +137,26 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return this;
     }
 
+    /***
+     *
+     * @param channel
+     * @throws Exception
+     * 1、setChannelOptions
+     * 2、setChannelAttrs
+     * 3、设置用户自定义的ChildOptions和ChildAttrs
+     */
     @Override
     void init(Channel channel) throws Exception {
+        //拿到用户代码里设置的options，可用以下方式设置：
+        //.childOption(ChannelOption.TCP_NODELAY,true)
         final Map<ChannelOption<?>, Object> options = options0();
+        //set channelOptions
+        //这里包括tcp相关的参数都会设置到channel.config里
         synchronized (options) {
             setChannelOptions(channel, options, logger);
         }
-
+        //拿到用户代码里设置的attrs，并把它设置为channel的属性，可用以下方式设置：
+        //.childAttr(AttributeKey.newInstance("test"),"111")
         final Map<AttributeKey<?>, Object> attrs = attrs0();
         synchronized (attrs) {
             for (Entry<AttributeKey<?>, Object> e: attrs.entrySet()) {
@@ -152,10 +165,18 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 channel.attr(key).set(e.getValue());
             }
         }
-
+        //获得serverSocketChannel对应的ChannelPipeline
         ChannelPipeline p = channel.pipeline();
-
+        //childGroup为b.group(bossGroup,workerGroup)中的第二个参数，用来处理客户端事件的线程池
         final EventLoopGroup currentChildGroup = childGroup;
+        //通过
+        //  .childHandler(new ChannelInitializer<SocketChannel>() {//当一个新的连接被接受时，一个新的子channel将会被创建，而ChannelInitializer将会把你的一个EchoServerHandler实例添加到Channel的ChannelPipeline中
+//                        protected void initChannel(SocketChannel ch) throws Exception {
+//                            ch.pipeline().addLast(serverHandler)
+//                            .addLast(new DiscardHandler());//将channelHandler绑定到pipeline链上
+//
+//                        }
+//                    });
         final ChannelHandler currentChildHandler = childHandler;
         final Entry<ChannelOption<?>, Object>[] currentChildOptions;
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs;
@@ -165,11 +186,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         synchronized (childAttrs) {
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
-
+        //拿到服务端pipeline,添加用户自定义的handler,
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {
                 final ChannelPipeline pipeline = ch.pipeline();
+                //获得用户自定义的handler
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
                     pipeline.addLast(handler);
@@ -178,6 +200,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        //添加连接器
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }

@@ -66,21 +66,31 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      * @param chooserFactory    the {@link EventExecutorChooserFactory} to use.
      * @param args              arguments which will passed to each {@link #newChild(Executor, Object...)} call
      */
+    /***
+     *
+     * 1、创建一个任务执行器：ThreadPerTaskExecutor
+     * 2、根据前端传过来的参数，创建指定的NioEventLoop，并为每个NioEventLoop绑定一个selector。
+     *      NioEventLoop也绑定了ThreadPerTaskExecutor，所以后续如果有任务过来时，线程可交给ThreadPerTaskExecutor来创建
+     *      为NioEventLoop创建一个任务队列，用来接收客户端传过来的任务
+     * 3、为每个
+     */
     protected MultithreadEventExecutorGroup(int nThreads, Executor executor,
                                             EventExecutorChooserFactory chooserFactory, Object... args) {
+        //
         if (nThreads <= 0) {
             throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
         }
-
+        //1、创建一个线程执行器，每次执行任务的时候，都会为任务创建一个线程实体
         if (executor == null) {
             executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
         }
-
+        //创建一个EventLoop数组，数组长度为nThreads
         children = new EventExecutor[nThreads];
-
+        //2、创建每个NioEventLoop
         for (int i = 0; i < nThreads; i ++) {
             boolean success = false;
             try {
+                //初始化children，这里调用的是NioEventLoopGroup.newChild，返回一个EventLoop
                 children[i] = newChild(executor, args);
                 success = true;
             } catch (Exception e) {
@@ -107,7 +117,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
                 }
             }
         }
-
+        //3、创建线程选择器，为信连接绑定对应的NioEventLoop
         chooser = chooserFactory.newChooser(children);
 
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {

@@ -469,7 +469,7 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     public ChannelFuture deregister() {
         return deregister(newPromise());
     }
-
+    //将channel绑定到指定的端口地址
     @Override
     public ChannelFuture bind(final SocketAddress localAddress, final ChannelPromise promise) {
         if (localAddress == null) {

@@ -676,9 +676,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                     ctx.handler().getClass().getName() + ".handlerRemoved() has thrown an exception.", t));
         }
     }
-
+    //如果是第一次注册的话，在pipeline上传播handlerAdded注册成功的事件，从头到尾
     final void invokeHandlerAddedIfNeeded() {
         assert channel.eventLoop().inEventLoop();
+        //是否第一次注册，如果是的话，调用pipeline上所有handler上的handlerAdded方法
         if (firstRegistration) {
             firstRegistration = false;
             // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
@@ -853,7 +854,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         buf.append('}');
         return buf.toString();
     }
-
+    //在pipeline上传播ChannelRegistered注册成功的事件，从头到尾
     @Override
     public final ChannelPipeline fireChannelRegistered() {
         AbstractChannelHandlerContext.invokeChannelRegistered(head);
@@ -1417,10 +1418,18 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             }
         }
 
+        /***
+         *
+         * @param ctx
+         * @throws Exception
+         *  headContext会通过readIfIsAutoRead触发channel.read事件，会将该事件在pepiline上传播，并最终会调用到AbstractNioChannel.debeginRead
+         *     AbstractNioChannel.debeginRead：
+         */
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            //把active事件往下进行传播
             ctx.fireChannelActive();
-
+            //会触发channel.read事件，会从pepiline上传播，最终会调用到AbstractNioChannel.debeginRead
             readIfIsAutoRead();
         }
 

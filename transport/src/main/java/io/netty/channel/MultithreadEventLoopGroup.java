@@ -48,6 +48,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     /**
      * @see MultithreadEventExecutorGroup#MultithreadEventExecutorGroup(int, Executor, Object...)
      */
+    //从这里可以发现，如果不指定nioEventLoopGroup线程池的线程数的话，默认是2*cpu
     protected MultithreadEventLoopGroup(int nThreads, Executor executor, Object... args) {
         super(nThreads == 0 ? DEFAULT_EVENT_LOOP_THREADS : nThreads, executor, args);
     }

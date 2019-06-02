@@ -103,8 +103,14 @@ public class DefaultThreadFactory implements ThreadFactory {
                 Thread.currentThread().getThreadGroup() : System.getSecurityManager().getThreadGroup());
     }
 
+    /***
+     * 为任务创建一个线程
+     * @param r
+     * @return
+     */
     @Override
     public Thread newThread(Runnable r) {
+        //
         Thread t = newThread(FastThreadLocalRunnable.wrap(r), prefix + nextId.incrementAndGet());
         try {
             if (t.isDaemon() != daemon) {

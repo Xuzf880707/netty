@@ -48,6 +48,11 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
 
+    /**
+     * 通过jdk底层创建底层jdk channel，也就是一个socket
+     * @param provider
+     * @return
+     */
     private static ServerSocketChannel newSocket(SelectorProvider provider) {
         try {
             /**
@@ -68,6 +73,13 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     /**
      * Create a new instance
      */
+    /**
+     * 1、newScoket()通过jdk底层来创建jdk底层jdk channel，该channel也是一个jdk socket
+     * 2、创建NioServerSocketChannelConfig，用来设置jdk channel的tcp参数配置
+     * 3、调用父类 AbstractNioChannel ()构造方法
+     *      configureBolocking(false)设置channel为非阻塞模式
+     *      调用 AbstractChannel()创建id,unsafe工具类，以及channel对应的pipeline
+     */
     public NioServerSocketChannel() {
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
@@ -84,6 +96,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
         super(null, channel, SelectionKey.OP_ACCEPT);
+        //创建NioServerSocketChannelConfig，用来设置jdk channel的tcp参数配置
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
 

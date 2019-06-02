@@ -383,6 +383,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                //将java channel注册到selector上
+                //this:服务端的serverSocketChannel
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
@@ -405,17 +407,23 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         eventLoop().cancel(selectionKey());
     }
 
+    /***
+     *
+     * @throws Exception
+     */
     @Override
     protected void doBeginRead() throws Exception {
         // Channel.read() or ChannelHandlerContext.read() was called
+        //在服务端注册的时候，该selectionKey为服务端注册对应的selectionKey（初始注册的话，这个绑定的是0）
         final SelectionKey selectionKey = this.selectionKey;
         if (!selectionKey.isValid()) {
             return;
         }
 
         readPending = true;
-
+        //
         final int interestOps = selectionKey.interestOps();
+        //如果interestOps==0，所以表示是服务端刚注册，所以会更新服务端对应的accept，更新的selectKey在原有事件上增加了readInterestOp（服务单注册的时候，这个readInterestOp是accept）事件
         if ((interestOps & readInterestOp) == 0) {
             selectionKey.interestOps(interestOps | readInterestOp);
         }

@@ -454,9 +454,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         public final SocketAddress remoteAddress() {
             return remoteAddress0();
         }
-
+        //注册channel
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
+            //判断bossGroup是否为空，该bossGroup是用来监听端口号上客户端的请求事件，但是不处理事件
             if (eventLoop == null) {
                 throw new NullPointerException("eventLoop");
             }
@@ -473,7 +474,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             AbstractChannel.this.eventLoop = eventLoop;
 
             if (eventLoop.inEventLoop()) {
-                register0(promise);
+                //注册的时候会先传播HandlerAdded事件，再传播registerChannel事件
+                register0(promise);//实际的注册
             } else {
                 try {
                     eventLoop.execute(new Runnable() {
@@ -493,6 +495,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+        /***
+         * 实际将channel注册到selector上
+         * @param promise
+         */
         private void register0(ChannelPromise promise) {
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
@@ -501,20 +507,23 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
-                doRegister();
+                doRegister();//调用jdk底层注册，将jdk的一个channel注册到一个selector上
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
-                pipeline.invokeHandlerAddedIfNeeded();
+                //判断是否第一次注册到selector上，如果是的话，调用pipeline上所有handler上的handlerAdded方法
+                pipeline.invokeHandlerAddedIfNeeded();//处理一些channelHandler的回调
 
                 safeSetSuccess(promise);
+                //在pipeline上传播ChannelRegistered注册成功的事件，从头到尾
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
                 if (isActive()) {
                     if (firstRegistration) {
+                        //触发channelHandler中的ChannelActive方法
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
@@ -552,16 +561,17 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         "is not bound to a wildcard address; binding to a non-wildcard " +
                         "address (" + localAddress + ") anyway as requested.");
             }
-
+            //服务端启动绑定前，返回的是false
             boolean wasActive = isActive();
             try {
-                doBind(localAddress);
+                //将java channel做jdk底层的绑定，绑定到端口上
+                doBind(localAddress);//服务端启动绑定前，isActive()返回的是false
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
                 closeIfClosed();
                 return;
             }
-
+            //如果当前chnnel第一次绑定端口的话，则在pipeline上传播channelActive事件
             if (!wasActive && isActive()) {
                 invokeLater(new Runnable() {
                     @Override

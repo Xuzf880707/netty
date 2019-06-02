@@ -239,7 +239,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind() {
-        validate();
+        validate();//参数校验，校验是否设置了EventLoopGroup
         SocketAddress localAddress = this.localAddress;
         if (localAddress == null) {
             throw new IllegalStateException("localAddress not set");
@@ -284,17 +284,25 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(localAddress);
     }
 
+    /***
+     *
+     *
+     * @param localAddress
+     * @return
+     * 1、
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
-        //创建服务端的channeL
+        //创建服务端的severSocketChannel，并注册到selector上
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
         }
-
+        //如果注册成功
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            //绑定端口号地址
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
@@ -321,11 +329,19 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    /**
+     * 1、利用EventLoopGroup创建一个SocketServerChannel
+     * 2、初始化SocketServerChannel
+     *      获取channelOptions、channelAttrs、childChannelOptions、childChannelAttrs
+     *      往SocketServerChannel对应的ChannelPipeline中追加绑定的handler。通过handler()方法绑定
+     * 3、
+     */
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
-            //new 一个channel
+            //new 一个channel 利用EventLoopGroup创建一个SocketServerChannel
             channel = channelFactory.newChannel();
+            //初始化SocketServerChannel
             init(channel);//初始化channel
         } catch (Throwable t) {
             if (channel != null) {
@@ -337,7 +353,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
-
+        //调用bossGroup的 register(channel)方法
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -367,10 +383,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        //这里SingleThreadEventExecutor.execute
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {
+                    //将channel绑定到指定端口号地址，并添加一个监听ServerSocketChannele关闭的事件
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());
@@ -464,6 +482,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     private static void setChannelOption(
             Channel channel, ChannelOption<?> option, Object value, InternalLogger logger) {
         try {
+            //根据channel的config设置option
             if (!channel.config().setOption((ChannelOption<Object>) option, value)) {
                 logger.warn("Unknown channel option '{}' for channel '{}'", option, channel);
             }
